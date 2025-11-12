@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	pb "data-nadhi-agent/logagentpb"
+	pb "github.com/datanadhi/echopost/logagentpb"
 
 	"google.golang.org/grpc"
 )

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	pb "data-nadhi-agent/logagentpb"
+	pb "github.com/datanadhi/echopost/logagentpb"
 
 	"github.com/cockroachdb/pebble"
 	flow "github.com/datanadhi/flowhttp/client"

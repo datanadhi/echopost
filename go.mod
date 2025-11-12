@@ -1,4 +1,4 @@
-module echopost
+module github.com/datanadhi/echopost
 
 go 1.24.0
 

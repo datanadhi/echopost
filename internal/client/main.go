@@ -17,7 +17,7 @@ import (
 	"log"
 	"time"
 
-	pb "data-nadhi-agent/logagentpb"
+	pb "github.com/datanadhi/echopost/logagentpb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	t "echopost/tools"
+	t "github.com/datanadhi/echopost/tools"
 	"flag"
 	"os"
 	"os/signal"
