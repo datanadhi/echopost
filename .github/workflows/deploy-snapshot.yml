@@ -56,6 +56,6 @@ jobs:
             ARCH=$(echo $file | cut -d'-' -f3)
             echo "Uploading $file to R2 as ${{ steps.version.outputs.snap_version }}..."
             aws s3 cp "$file" \
-              "s3://${R2_BUCKET_NAME}/echopost/${OS}/${ARCH}/echopost-${{ steps.version.outputs.snap_version }}" \
+              "s3://${R2_BUCKET_NAME}/${OS}/${ARCH}/echopost-${{ steps.version.outputs.snap_version }}" \
               --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           done
