@@ -1,0 +1,75 @@
+name: Deploy Echopost (Production)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write  # needed for tag push
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy to R2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required for tagging
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Read version from VERSION file
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d ' \n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building Echopost version $VERSION"
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          for GOOS in linux darwin; do
+            for GOARCH in amd64 arm64; do
+              echo "Building for $GOOS/$GOARCH..."
+              GOOS=$GOOS GOARCH=$GOARCH go build -o dist/echopost-$GOOS-$GOARCH .
+            done
+          done
+
+      - name: Upload binaries to Cloudflare R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          for file in dist/*; do
+            OS=$(echo $file | cut -d'-' -f2)
+            ARCH=$(echo $file | cut -d'-' -f3)
+            echo "Uploading $file to R2..."
+            aws s3 cp "$file" \
+              "s3://${R2_BUCKET_NAME}/echopost/${OS}/${ARCH}/echopost-${{ steps.version.outputs.version }}" \
+              --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+            aws s3 cp "$file" \
+              "s3://${R2_BUCKET_NAME}/echopost/${OS}/${ARCH}/echopost-latest" \
+              --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          done
+
+      - name: Tag and push version
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping tag creation."
+          else
+            git tag "$VERSION"
+            git push origin "$VERSION"
+            echo "Pushed tag $VERSION"
+          fi

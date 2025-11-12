@@ -87,3 +87,52 @@ go run internal/client/main.go
 - All logs printed by the agent are JSON formatted for easy parsing.
 
 ---
+
+## Deployment
+
+EchoPost has two automated deployment workflows configured via **GitHub Actions**.
+
+| Type | Trigger | Behavior |
+|------|----------|-----------|
+| **Production Deploy** | On merge to `main` | Builds binaries for all supported platforms and pushes them to Cloudflare R2. Also updates the `latest` tag for easy download. |
+| **Snapshot Deploy** | Manual trigger (via “Run workflow”) | Builds binaries for testing and pushes them with a suffix (e.g., `-snapshot`, `-rc1`, `-dev`). Useful for pre-release verification. |
+
+Both workflows automatically pick up secrets from the configured environments in GitHub and deploy to the shared **downloads infrastructure** at:
+```
+https://downloads.datanadhi.com/echopost/<os>/<arch>/echopost-<version>
+```
+
+For example:
+```
+https://downloads.datanadhi.com/echopost/linux/amd64/echopost-v1.3.0
+https://downloads.datanadhi.com/echopost/darwin/arm64/echopost-v1.3.0
+https://downloads.datanadhi.com/echopost/linux/amd64/echopost-latest
+```
+
+### Snapshot Examples
+
+When you trigger the snapshot workflow manually:
+- If the base version in `VERSION` is `v1.3.0` and you specify `rc1` as the suffix,  
+  it uploads as:  
+  `echopost-v1.3.0-rc1`
+- If you don’t specify anything, it defaults to:  
+  `echopost-v1.3.0-snapshot`
+
+These binaries appear under:
+```
+https://downloads.datanadhi.com/echopost/linux/amd64/echopost-v1.3.0-snapshot
+```
+
+### Security and Environments
+
+- Both workflows use GitHub **environments** (`production` and `snapshot`)  
+  to scope access to Cloudflare R2 credentials.
+- Only maintainers with deployment permissions can trigger or approve releases.
+- All deployments are atomic and immutable — once pushed, versioned binaries aren’t overwritten.
+
+---
+
+## License
+
+Licensed under the [**GNU Affero General Public License v3.0 (AGPLv3)**](/LICENSE).
+

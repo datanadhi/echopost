@@ -1,0 +1,61 @@
+name: Deploy Echopost (Snapshot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      suffix:
+        description: "Suffix for snapshot (e.g., rc1, snapshot, dev-2025-11-12)"
+        required: true
+        default: "snapshot"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-upload:
+    name: Build Snapshot Binary
+    runs-on: ubuntu-latest
+    environment: snapshot
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Read base version from VERSION file
+        id: version
+        run: |
+          BASE_VERSION=$(cat VERSION | tr -d ' \n')
+          SNAP_VERSION="${BASE_VERSION}-${{ github.event.inputs.suffix }}"
+          echo "snap_version=$SNAP_VERSION" >> $GITHUB_OUTPUT
+          echo "Building snapshot version $SNAP_VERSION"
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          for GOOS in linux darwin; do
+            for GOARCH in amd64 arm64; do
+              echo "Building for $GOOS/$GOARCH..."
+              GOOS=$GOOS GOARCH=$GOARCH go build -o dist/echopost-$GOOS-$GOARCH .
+            done
+          done
+
+      - name: Upload snapshot to Cloudflare R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          for file in dist/*; do
+            OS=$(echo $file | cut -d'-' -f2)
+            ARCH=$(echo $file | cut -d'-' -f3)
+            echo "Uploading $file to R2 as ${{ steps.version.outputs.snap_version }}..."
+            aws s3 cp "$file" \
+              "s3://${R2_BUCKET_NAME}/echopost/${OS}/${ARCH}/echopost-${{ steps.version.outputs.snap_version }}" \
+              --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          done
