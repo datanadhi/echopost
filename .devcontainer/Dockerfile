@@ -18,4 +18,4 @@ RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 RUN export PATH="$PATH:$(go env GOPATH)/bin"
 
 # Optional: set up workspace
-WORKDIR /workspace/data-nadhi-agent
+WORKDIR /workspace/echopost

@@ -26,8 +26,12 @@ type logRecord struct {
 // It stores incoming logs into Pebble with a unique key, ensuring persistence
 // even if the main server is unreachable.
 func (s *server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
+	var out map[string]any
+	if err := json.Unmarshal([]byte(req.JsonData), &out); err != nil {
+		out = map[string]any{}
+	}
 	rec := logRecord{
-		Payload:    map[string]any{"json_data": req.JsonData},
+		Payload:    out,
 		Pipelines:  req.Pipelines,
 		ReceivedAt: time.Now().UTC().Format(time.RFC3339Nano),
 	}

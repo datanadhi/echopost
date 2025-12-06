@@ -56,7 +56,7 @@ func main() {
 
 	for i := 0; i < *count; i++ {
 		// Prepare a simple JSON payload
-		jsonPayload := fmt.Sprintf(`{"msg":"log message %d","level":"INFO"}`, i)
+		jsonPayload := fmt.Sprintf(`{"msg":"log message %d","level":"INFO", "nested": {"something": "not important"}}`, i)
 
 		req := &pb.LogRequest{
 			JsonData:  jsonPayload,

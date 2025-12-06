@@ -4,6 +4,7 @@
         "dockerfile": "Dockerfile"
     },
     "runArgs": [
+        "--network=datanadhi-net",
         "--name",
         "echopost"
     ],
