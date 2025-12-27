@@ -1,64 +1,59 @@
 # EchoPost
 
-**EchoPost** is a short-lived helper process that kicks in when the main Data Nadhi server is down.
-It stores incoming logs locally and safely pushes them to the server once things are back online.
-After clearing the backlog, it shuts itself down.
+## Overview
+EchoPost is a **short-lived agent** that exists only when the main server is unavailable.
+
+Its only responsibility is to **avoid data loss** by temporarily buffering data locally and replaying it once the main server becomes available again.
+
+EchoPost is intentionally minimal.  
+It is not configurable, not long-running, and not meant to do anything beyond buffering and replay.
+
+Once its job is completed, EchoPost shuts down.
+
+![EchoPost Architecture](https://raw.githubusercontent.com/datanadhi/drawio/main/documentation/architecture/highlevel/export/echopost.svg)
 
 ---
 
-## What it does
-1. Listens on a local **UNIX socket** for logs from the SDK.
-2. Saves all logs in a small **PebbleDB** store.
-3. Keeps retrying delivery to the main server until it succeeds.
-4. Logs all activity in JSON format for easy visibility.
-5. Cleans up the database and socket before exiting.
+## Lifecycle
+
+### Startup
+- EchoPost starts when the main server is detected as unavailable.
+- A local gRPC server is started over a UNIX socket.
+- Incoming data is accepted immediately.
+
+### Buffering
+- All incoming data is written to local storage in timestamp order.
+- No data is deleted during this phase.
+
+### Health checks
+- EchoPost periodically checks if the main server is reachable.
+- No replay happens until the server is confirmed healthy.
+
+### Replay
+- Buffered data is replayed in the same order it was received.
+- Records are deleted **only after successful replay**.
+
+### Shutdown
+- When no buffered data remains, EchoPost shuts down gracefully.
+- EchoPost does not remain idle after replay.
 
 ---
 
-## Why it exists
-EchoPost is meant for **server environments** where temporary outages can happen —
-for example, if the main pipeline or log server is restarting, or there’s a network cut.
-Instead of losing data, logs are stored locally and sent once the system is healthy again.
-
-It’s not a daemon or background service — it comes up, does its job, and exits cleanly.
-
----
-
-## How it works (simple view)
-```
-App / SDK
-   │
-   ├──> sends logs to local EchoPost (via gRPC socket)
-   │
-EchoPost
-   ├── stores logs in PebbleDB
-   ├── retries delivery until success
-   └── cleans up and exits
-```
+## Why is this required?
+- When the main server goes down, there is a possibility of data loss.
+- Avoiding this is the primary goal.
+- Using an external fallback server increases latency and adds failure points.
+- EchoPost runs on the same machine as the SDK/application, making communication faster and local.
 
 ---
 
-## Structure
-```
-echopost/
-├── main.go                # Entry point
-├── tools/                 # Core logic
-│   ├── client.go          # Sends logs to server
-│   ├── config.go          # File and path setup
-│   ├── grpc_server.go     # gRPC socket and handlers
-│   ├── log.go             # Simple JSON logger
-│   └── pebble.go          # Queue and retry logic
-├── logagent.proto         # gRPC proto definition
-├── logagentpb/            # Generated gRPC code
-│   ├── logagent.pb.go
-│   └── logagent_grpc.pb.go
-├── internal/
-│   └── client/            # Local test client (excluded from builds)
-│       └── main.go
-├── go.mod
-├── go.sum
-└── .env                   # Optional local config
-```
+## How is this different from agents out there today?
+- Most agents are designed to send data to multiple destinations and require user configuration.  
+  EchoPost does not do that. It **only talks to the Data Nadhi server**.
+- Other agents are long-running and live until stopped manually or due to an exception.  
+  EchoPost is **short-lived** and behaves more like a **process**.
+- Long-running agents consume more memory because they do more work.  
+  EchoPost is designed to **consume minimal memory** and only for a short duration.
 
 ---
 
